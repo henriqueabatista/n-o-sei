@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jogo da Nave Espacial</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+
+        :root {
+            --bg-color: #0d0d26;
+            --ship-color: #00ffff;
+            --bullet-color: #ffff00;
+            --enemy-color: #ff0077;
+            --text-color: #fff;
+            --accent-color: #ff00ff;
+        }
+
+        body {
+            background-color: #000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            font-family: 'Orbitron', sans-serif;
+            color: var(--text-color);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(circle, #1a1a3a, #0d0d26);
+            border: 2px solid var(--text-color);
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+        }
+
+        #gameCanvas {
+            background-color: var(--bg-color);
+            border-radius: 5px;
+            max-width: 95%;
+            max-height: 95%;
+            border: 1px solid var(--text-color);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+            position: relative;
+        }
+
+        .ui-panel {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 40px;
+            font-size: 1.5rem;
+            text-shadow: 0 0 5px var(--accent-color);
+            z-index: 10;
+        }
+
+        .game-status {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 20;
+            animation: fadeIn 1s ease-in-out;
+        }
+
+        .game-status h1 {
+            font-size: 3rem;
+            color: var(--accent-color);
+            text-shadow: 0 0 10px var(--accent-color);
+        }
+
+        .game-status p {
+            font-size: 1.5rem;
+            color: var(--text-color);
+        }
+
+        .start-btn,
+        .restart-btn {
+            background-color: var(--accent-color);
+            border: none;
+            color: var(--text-color);
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            font-family: 'Orbitron', sans-serif;
+            cursor: pointer;
+            border-radius: 5px;
+            margin-top: 20px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+        }
+
+        .start-btn:hover,
+        .restart-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 15px var(--accent-color);
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        /* Starfield animation */
+        .stars {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .stars::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: transparent url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"><rect width="100%" height="100%" fill="black"/><circle cx="10%" cy="20%" r="0.5" fill="white"/><circle cx="30%" cy="50%" r="0.8" fill="white"/><circle cx="70%" cy="80%" r="0.6" fill="white"/><circle cx="85%" cy="15%" r="1" fill="white"/><circle cx="45%" cy="90%" r="0.7" fill="white"/></svg>');
+            background-size: 500px 500px;
+            animation: star-move 60s linear infinite;
+        }
+
+        @keyframes star-move {
+            from {
+                background-position: 0 0;
+            }
+
+            to {
+                background-position: 0 1000px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="stars"></div>
+    <div class="game-container">
+        <div class="ui-panel">
+            <div id="scoreDisplay">Pontos: 0</div>
+            <div id="highScoreDisplay">Recorde: 0</div>
+        </div>
+
+        <canvas id="gameCanvas"></canvas>
+
+        <div id="startScreen" class="game-status">
+            <h1>Jogo da Nave</h1>
+            <p>Use as setas ← → para mover e a barra de espaço para atirar.</p>
+            <button id="startButton" class="start-btn">Começar Jogo</button>
+        </div>
+
+        <div id="gameOverScreen" class="game-status" style="display:none;">
+            <h1>Fim de Jogo!</h1>
+            <p id="finalScore"></p>
+            <button id="restartButton" class="restart-btn">Reiniciar Jogo</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Get canvas and context
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+
+            // Get UI elements
+            const startScreen = document.getElementById('startScreen');
+            const gameOverScreen = document.getElementById('gameOverScreen');
+            const startButton = document.getElementById('startButton');
+            const restartButton = document.getElementById('restartButton');
+            const scoreDisplay = document.getElementById('scoreDisplay');
+            const highScoreDisplay = document.getElementById('highScoreDisplay');
+            const finalScoreDisplay = document.getElementById('finalScore');
+
+            let gameRunning = false;
+            let animationFrameId;
+
+            // Resize canvas to fit the window
+            function resizeCanvas() {
+                canvas.width = window.innerWidth * 0.9;
+                canvas.height = window.innerHeight * 0.8;
+                if (canvas.width > 600) canvas.width = 600;
+                if (canvas.height > 800) canvas.height = 800;
+            }
+            window.addEventListener('resize', resizeCanvas);
+            resizeCanvas();
+
+            // Game State
+            let player;
+            let bullets = [];
+            let enemies = [];
+            let score = 0;
+            let highScore = 0;
+
+            // Input handlers
+            const keys = {
+                left: false,
+                right: false,
+                space: false
+            };
+            let lastBulletTime = 0;
+            const fireRate = 150; // Milliseconds between shots
+
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowLeft' || e.key === 'a') keys.left = true;
+                if (e.key === 'ArrowRight' || e.key === 'd') keys.right = true;
+                if (e.key === ' ' && !keys.space) keys.space = true;
+            });
+            document.addEventListener('keyup', (e) => {
+                if (e.key === 'ArrowLeft' || e.key === 'a') keys.left = false;
+                if (e.key === 'ArrowRight' || e.key === 'd') keys.right = false;
+                if (e.key === ' ') keys.space = false;
+            });
+
+            // Player Object
+            function createPlayer() {
+                player = {
+                    x: canvas.width / 2,
+                    y: canvas.height - 60,
+                    width: 40,
+                    height: 40,
+                    speed: 5
+                };
+            }
+
+            // Bullet Class
+            class Bullet {
+                constructor(x, y) {
+                    this.x = x;
+                    this.y = y;
+                    this.width = 5;
+                    this.height = 15;
+                    this.speed = 7;
+                }
+            }
+
+            // Enemy Class
+            class Enemy {
+                constructor(x, y) {
+                    this.x = x;
+                    this.y = y;
+                    this.width = 30;
+                    this.height = 30;
+                    this.speed = 1 + score * 0.005; // Speed increases with score
+                }
+            }
+
+            // Drawing functions
+            function drawPlayer() {
+                // Fixed: use hardcoded color
+                ctx.fillStyle = '#00ffff';
+                ctx.beginPath();
+                ctx.moveTo(player.x, player.y);
+                ctx.lineTo(player.x - player.width / 2, player.y + player.height);
+                ctx.lineTo(player.x + player.width / 2, player.y + player.height);
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            function drawBullet(bullet) {
+                // Fixed: use hardcoded color
+                ctx.fillStyle = '#ffff00';
+                ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+            }
+
+            function drawEnemy(enemy) {
+                // Fixed: use hardcoded color
+                ctx.fillStyle = '#ff0077';
+                ctx.beginPath();
+                ctx.arc(enemy.x, enemy.y, enemy.width / 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            function clearCanvas() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+
+            // Game Logic
+            function update() {
+                // Player Movement
+                if (keys.left && player.x > player.width / 2) {
+                    player.x -= player.speed;
+                }
+                if (keys.right && player.x < canvas.width - player.width / 2) {
+                    player.x += player.speed;
+                }
+
+                // Firing bullets
+                const currentTime = Date.now();
+                if (keys.space && (currentTime - lastBulletTime > fireRate)) {
+                    bullets.push(new Bullet(player.x - 2.5, player.y - 15));
+                    lastBulletTime = currentTime;
+                }
+
+                // Update bullets
+                bullets.forEach((bullet, index) => {
+                    bullet.y -= bullet.speed;
+                    if (bullet.y < 0) {
+                        bullets.splice(index, 1);
+                    }
+                });
+
+                // Spawn enemies
+                if (Math.random() < 0.02) { // Adjust spawn rate
+                    const enemyX = Math.random() * (canvas.width - 30) + 15;
+                    enemies.push(new Enemy(enemyX, -30));
+                }
+
+                // Update enemies
+                enemies.forEach((enemy, index) => {
+                    enemy.y += enemy.speed;
+
+                    // New: Check for player-enemy collision
+                    const playerCollision = (
+                        player.x < enemy.x + enemy.width / 2 &&
+                        player.x + player.width / 2 > enemy.x &&
+                        player.y < enemy.y + enemy.height / 2 &&
+                        player.y + player.height > enemy.y
+                    );
+
+                    if (playerCollision) {
+                        endGame(); // Game over on collision
+                    }
+
+                    // Original: Game over if enemy passes player
+                    // REMOVED FOR THIS VERSION
+                });
+
+                // Check for bullet-enemy collisions
+                checkCollisions();
+            }
+
+            function checkCollisions() {
+                bullets.forEach((bullet, bIndex) => {
+                    enemies.forEach((enemy, eIndex) => {
+                        // Simple AABB collision detection
+                        if (
+                            bullet.x < enemy.x + enemy.width &&
+                            bullet.x + bullet.width > enemy.x &&
+                            bullet.y < enemy.y + enemy.height &&
+                            bullet.y + bullet.height > enemy.y
+                        ) {
+                            // Collision detected
+                            bullets.splice(bIndex, 1);
+                            enemies.splice(eIndex, 1);
+                            score += 10;
+                            updateScoreDisplay();
+                        }
+                    });
+                });
+            }
+
+            function updateScoreDisplay() {
+                scoreDisplay.textContent = `Pontos: ${score}`;
+            }
+
+            // Game loop
+            function gameLoop() {
+                clearCanvas();
+                update();
+                draw();
+                animationFrameId = requestAnimationFrame(gameLoop);
+            }
+
+            function draw() {
+                drawPlayer();
+                bullets.forEach(drawBullet);
+                enemies.forEach(drawEnemy);
+            }
+
+            // Game State Management
+            function loadHighScore() {
+                const storedHighScore = localStorage.getItem('highScore');
+                if (storedHighScore) {
+                    highScore = parseInt(storedHighScore, 10);
+                }
+                highScoreDisplay.textContent = `Recorde: ${highScore}`;
+            }
+
+            function saveHighScore() {
+                if (score > highScore) {
+                    highScore = score;
+                    localStorage.setItem('highScore', highScore);
+                }
+            }
+
+            function startGame() {
+                startScreen.style.display = 'none';
+                gameOverScreen.style.display = 'none';
+                gameRunning = true;
+                score = 0;
+                bullets = [];
+                enemies = [];
+                createPlayer();
+                updateScoreDisplay();
+                loadHighScore();
+                gameLoop();
+            }
+
+            function endGame() {
+                gameRunning = false;
+                cancelAnimationFrame(animationFrameId);
+                saveHighScore();
+                finalScoreDisplay.textContent = `Sua pontuação final foi: ${score}`;
+                gameOverScreen.style.display = 'flex';
+                loadHighScore();
+            }
+
+            // Event Listeners for UI
+            startButton.addEventListener('click', startGame);
+            restartButton.addEventListener('click', startGame);
+
+            // Initial load
+            loadHighScore();
+            resizeCanvas();
+        });
+    </script>
+</body>
+
+</html>
