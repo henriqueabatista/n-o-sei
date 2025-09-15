@@ -1,3 +1,3 @@
 # n-o-sei
 
-jogo da nave
+jogo da nave https://henriqueabatista.github.io/no-sei/
